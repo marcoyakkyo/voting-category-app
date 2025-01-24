@@ -64,7 +64,7 @@ def get_data(_client: MongoClient) -> list:
         }, {
             '$unwind': {
                 'path': '$parent', 
-                'preserveNullAndEmptyArrays': True
+                'preserveNullAndEmptyArrays': False
             }
         }, {
             '$addFields': {
