@@ -1,0 +1,4 @@
+python-dotenv
+pymongo
+streamlit
+streamlit-aggrid
