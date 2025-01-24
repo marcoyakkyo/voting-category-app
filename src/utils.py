@@ -1,9 +1,12 @@
+from time import sleep
 from pymongo import MongoClient
 import streamlit as st
+
 
 @st.cache_resource
 def init_connection():
     return MongoClient(st.secrets["MONGO_URL"])[st.secrets["MONGO_DB_NAME"]]
+
 
 @st.cache_data(ttl=600)
 def get_data(_client: MongoClient) -> list:
@@ -107,4 +110,55 @@ def get_data(_client: MongoClient) -> list:
         allowed_macro_categories.append(category)
 
     return allowed_macro_categories
+
+
+def on_vote(mongo_client: MongoClient, vote: str, sub_category: dict, idx_selected: int):
+
+    res = mongo_client["category_votes"].insert_one({
+        "email": st.session_state["user_email"],
+        "categoryId": sub_category["categoryId"],
+        "name": sub_category["name"],
+        "vote": vote,
+    })
+
+    if not res.acknowledged:
+        st.error("Error submitting vote!")
+        return None
+
+    ## remove te sub_category from the macro
+    new_allowd_sub_categories = [c for c in st.session_state["categories"][idx_selected]["sub_categories"] if c["name"] != sub_category["name"]]
+
+    st.session_state["categories"][idx_selected]["sub_categories"] = new_allowd_sub_categories
+
+    if not len(new_allowd_sub_categories):
+        st.session_state["categories"] = [c for c in st.session_state["categories"] if c["name"] != st.session_state["macro_category_name"]]
+        st.session_state["macro_category_name"] = None
+
+    st.success("Vote submitted! 🎉")
+    sleep(2)
+    st.rerun()
+
+
+def display_products(products: list):
+    row = 0
+    cols = st.columns(3)
+
+    for prod in products[:9]:
+
+        if row % 3 == 0 and row > 0:
+            row = 0
+            cols = st.columns(3)
+
+        prod_price = f'{float(prod["price"])* 0.13:.2f} $'
+        prod_link = f"https://detail.1688.com/offer/{prod['id1688']}.html"
+
+        product_info = f"Price: {prod_price}\nSales: {prod['sales']}\nGroup size: {prod['group_size']}\n[View product]({prod_link})"
+
+        cols[row].image(prod["image"], caption=product_info, width=200) #, use_column_width=True
+        row += 1
+
+        ## or use this
+        # st.image(prod["image"], caption=prod_price, width=150)
+        # st.write(product_info)
+        # st.write("___________________________")
 

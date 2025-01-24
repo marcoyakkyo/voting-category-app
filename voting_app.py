@@ -1,9 +1,5 @@
-
 import os
 from dotenv import load_dotenv
-from pymongo import MongoClient
-from time import sleep
-
 import streamlit as st
 
 from src import auth, utils
@@ -45,7 +41,8 @@ if os.getenv("DEBUG", "").lower() == "true" and not st.session_state.get("alread
     mongo_client["category_votes"].delete_many({"email": st.session_state["user_email"]})
     st.session_state["already_deleted"] = True
 
-# ---------------------------- VOTING APP ----------------------------
+
+# ---------------------------- Selecting Categories ----------------------------
 st.write("# Voting App")
 
 already_selected = st.session_state.get("macro_category_name", None)
@@ -62,7 +59,7 @@ else:
 
 macro_category = next(c for c in st.session_state["categories"] if c["name"] == macro_category_name)
 
-st.session_state["macro_category_name"] = macro_category_name
+st.session_state["macro_category_name"] = macro_category["name"]
 
 # ask to select a sub category
 sub_categories = macro_category["sub_categories"]
@@ -73,61 +70,12 @@ sub_category = next(c for c in sub_categories if c["name"] == sub_category_name)
 ## ---------------------------- VOTING ----------------------------
 vote = st.radio("How interesting is this category?", ["interesting", "mid interesting", "not interesting"])
 
-
 # Submit the vote
 if st.button("Submit vote"):
-    vote_data = {
-        "email": st.session_state["user_email"],
-        "categoryId": sub_category["categoryId"],
-        "name": sub_category["name"],
-        "vote": vote,
-    }
-    mongo_client["category_votes"].insert_one(vote_data)
-
-    ## remove te sub_category from the macro
-    print("Initial sub categories:", len(st.session_state["categories"][idx_selected]["sub_categories"]))
-
-    new_allowd_sub_categories = [c for c in st.session_state["categories"][idx_selected]["sub_categories"] if c["name"] != sub_category_name]
-    print("New allowed sub categories:", len(new_allowd_sub_categories))
-
-    print("before:", len(st.session_state["categories"][idx_selected]["sub_categories"]))
-
-    st.session_state["categories"][idx_selected]["sub_categories"] = new_allowd_sub_categories
-
-    print(f"after: {len(st.session_state['categories'][idx_selected]['sub_categories'])}")
-
-    if not len(new_allowd_sub_categories):
-        st.session_state["categories"] = [c for c in st.session_state["categories"] if c["name"] != macro_category_name]
-        st.session_state["macro_category_name"] = None
-        print("Removed category from the list")
-
-    st.success("Vote submitted! 🎉")
-    print("Vote submitted!")
-    sleep(2)
-    st.rerun()
+    utils.on_vote(mongo_client, vote, sub_category, idx_selected)
 
 
 # ---------------------------- DISPLAY ----------------------------
 st.title(f'Products in "{macro_category_name}" -> "{sub_category_name}"')
-row = 0
-cols = st.columns(3)
-for prod in sub_category["products"][:9]:
 
-    if row % 3 == 0 and row > 0:
-        row = 0
-        cols = st.columns(3)
-
-    prod_price = f'{float(prod["price"])* 0.13:.2f} $'
-    prod_link = f"https://detail.1688.com/offer/{prod['id1688']}.html"
-
-    product_info = f"Price: {prod_price}\nSales: {prod['sales']}\nGroup size: {prod['group_size']}\n[View product]({prod_link})"
-
-    cols[row].image(prod["image"], caption=product_info, width=200) #, use_column_width=True
-    row += 1
-
-    ## or use this
-    # st.image(prod["image"], caption=prod_price, width=150)
-    # st.write(product_info)
-    # st.write("___________________________")
-
-
+utils.display_products(sub_category["products"])
