@@ -164,40 +164,44 @@ def display_products(products: list):
         cols[row].image(prod["image"], caption=product_info, width=200) #, use_column_width=True
         row += 1
 
-        ## or use this
-        # st.image(prod["image"], caption=prod_price, width=150)
-        # st.write(product_info)
-        # st.write("___________________________")
 
 def get_results(client: MongoClient):
-    votes = list(client["category_votes"].aggregate([{
+
+    category_votes = list(client["category_votes"].aggregate([
+    {
         '$group': {
             '_id': '$categoryId', 
             'name': {'$first': '$name'}, 
             'total_votes': {'$sum': 1}, 
-            'bad_votes': {
-                '$sum': {'$cond': [{'$eq': ['$vote', 'not interesting']}, 1, 0]}
-            }, 
-            'good_votes': {
-                '$sum': {'$cond': [{'$eq': ['$vote', 'interesting']}, 1, 0]}
-            }, 
-            'mid_votes': {
-                '$sum': {'$cond': [{'$eq': ['$vote', 'mid interesting']}, 1, 0]}
-            }, 
-            'users': {
-                '$push': '$email'
+            'votes': {
+                '$push': {'email': '$email', 'vote': '$vote'}
             }
         }
     }, {
-        '$sort': {
-            'total_votes': -1, 
-            'good_votes': -1
-        }
-    }]))
+        '$sort': {'total_votes': -1}
+    }
+    ]))
 
-    for v in votes:
-        v["score"] = v["good_votes"] + 0.5 * v["mid_votes"] - v["bad_votes"]
+    for category in category_votes:
+        category["category_id"] = category.pop("_id")
+        category["score"] = 0
+        category["good_votes"] = 0
+        category["mid_votes"] = 0
+        category["bad_votes"] = 0
+        category["users"] = list(set([v["email"] for v in category["votes"]]))
 
-    votes.sort(key=lambda x: x["score"], reverse=True)
+        for vote in category["votes"]:
 
-    return votes
+            if vote["vote"] == "interesting":
+                category["good_votes"] += 1
+                category["score"] += 1
+            elif vote["vote"] == "mid interesting":
+                category["mid_votes"] += 1
+                category["score"] += 0.5
+            else:
+                category["bad_votes"] += 1
+                category["score"] -= 1
+
+    category_votes.sort(key=lambda x: x["score"], reverse=True)
+
+    return category_votes

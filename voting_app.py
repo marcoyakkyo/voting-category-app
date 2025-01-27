@@ -46,30 +46,36 @@ if st.session_state["show_results"] or has_finished:
         if has_finished else \
     st.write("Showing results...")
 
-    votes = utils.get_results(mongo_client)
+    category_votes = utils.get_results(mongo_client)
 
-    user_votes = defaultdict(defaultdict(int))
-    for vote in votes:
-        user_votes[vote["email"]][vote["vote"]] += 1
+    user_votes = defaultdict(lambda: defaultdict(int))
+
+    for category in category_votes:
+        for vote in category.pop("votes"):
+            user_votes[vote["email"]][vote["vote"]] += 1
+
+    for user, votes in user_votes.items():
+        user_votes[user] = dict(votes)
+        user_votes[user]["total"] = sum(votes.values())
 
     st.write("Here are the users that already voted:")
     st.write(dict(user_votes))
 
     st.write("Here are the results by category:")
-    st.write(votes)
+    st.write(category_votes)
 
 else:
 
     print(f"Collected Categories: {len(st.session_state['categories'])}: {st.session_state['categories'][0].keys()}")
 
-    # for testing, delete all votes of the test user
-    if os.getenv("DEBUG", "").lower() == "true" and not st.session_state.get("already_deleted", False):
-        mongo_client["category_votes"].delete_many({"email": st.session_state["user_email"]})
-        st.session_state["already_deleted"] = True
-
+    # # for testing, delete all votes of the test user
+    # if os.getenv("DEBUG", "").lower() == "true" and not st.session_state.get("already_deleted", False):
+    #     mongo_client["category_votes"].delete_many({"email": st.session_state["user_email"]})
+    #     st.session_state["already_deleted"] = True
 
     # ---------------------------- Selecting Categories ----------------------------
     st.write("# Voting App")
+    st.write(f"You still have to vote on {sum([len(c['sub_categories']) for c in st.session_state['categories']])} sub-categories")
 
     already_selected = st.session_state.get("macro_category_name", None)
 
