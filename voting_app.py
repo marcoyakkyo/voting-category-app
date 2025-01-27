@@ -34,6 +34,9 @@ all_categories = utils.get_data(mongo_client)
 if "categories" not in st.session_state:
     st.session_state["categories"] = all_categories
 
+if len(st.session_state["categories"]) == 0:
+    st.write("No more categories to vote on!")
+    st.stop()
 print(f"Collected Categories: {len(st.session_state['categories'])}: {st.session_state['categories'][0].keys()}")
 
 # for testing, delete all votes of the user
