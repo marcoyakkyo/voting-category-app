@@ -66,7 +66,7 @@ if st.session_state["show_results"] or has_finished:
 
 else:
 
-    print(f"Collected Categories: {len(st.session_state['categories'])}: {st.session_state['categories'][0].keys()}")
+    print(f"Collected Categories: {len(st.session_state['categories'])}")
 
     # # for testing, delete all votes of the test user
     # if os.getenv("DEBUG", "").lower() == "true" and not st.session_state.get("already_deleted", False):
