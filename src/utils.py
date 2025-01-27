@@ -114,16 +114,23 @@ def get_data(_client: MongoClient) -> list:
 
 def on_vote(mongo_client: MongoClient, vote: str, sub_category: dict, idx_selected: int):
 
-    res = mongo_client["category_votes"].insert_one({
+    query = {
         "email": st.session_state["user_email"],
         "categoryId": sub_category["categoryId"],
-        "name": sub_category["name"],
-        "vote": vote,
-    })
+    }
 
-    if not res.acknowledged:
-        st.error("Error submitting vote!")
-        return None
+    if mongo_client["category_votes"].find_one(query) is None:
+        res = mongo_client["category_votes"].insert_one({
+            "email": st.session_state["user_email"],
+            "categoryId": sub_category["categoryId"],
+            "name": sub_category["name"],
+            "vote": vote,
+        })
+        if not res.acknowledged:
+            st.error("Error submitting vote!")
+            return None
+    else:
+        mongo_client["category_votes"].update_one(query, {"$set": {"vote": vote, "name": sub_category["name"]}})
 
     ## remove te sub_category from the macro
     new_allowd_sub_categories = [c for c in st.session_state["categories"][idx_selected]["sub_categories"] if c["name"] != sub_category["name"]]
@@ -162,3 +169,35 @@ def display_products(products: list):
         # st.write(product_info)
         # st.write("___________________________")
 
+def get_results(client: MongoClient):
+    votes = list(client["category_votes"].aggregate([{
+        '$group': {
+            '_id': '$categoryId', 
+            'name': {'$first': '$name'}, 
+            'total_votes': {'$sum': 1}, 
+            'bad_votes': {
+                '$sum': {'$cond': [{'$eq': ['$vote', 'not interesting']}, 1, 0]}
+            }, 
+            'good_votes': {
+                '$sum': {'$cond': [{'$eq': ['$vote', 'interesting']}, 1, 0]}
+            }, 
+            'mid_votes': {
+                '$sum': {'$cond': [{'$eq': ['$vote', 'mid interesting']}, 1, 0]}
+            }, 
+            'users': {
+                '$push': '$email'
+            }
+        }
+    }, {
+        '$sort': {
+            'total_votes': -1, 
+            'good_votes': -1
+        }
+    }]))
+
+    for v in votes:
+        v["score"] = v["good_votes"] + 0.5 * v["mid_votes"] - v["bad_votes"]
+
+    votes.sort(key=lambda x: x["score"], reverse=True)
+
+    return votes
