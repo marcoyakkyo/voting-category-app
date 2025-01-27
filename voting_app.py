@@ -66,13 +66,27 @@ sub_categories = macro_category["sub_categories"]
 sub_category_name = st.selectbox("Pick a sub category", [c["name"] for c in sub_categories])
 sub_category = next(c for c in sub_categories if c["name"] == sub_category_name)
 
+st.markdown(f'#### <font color="red">ATTENTION:</font> How interesting is the category: {sub_category_name}?', unsafe_allow_html=True)
 
-## ---------------------------- VOTING ----------------------------
-vote = st.radio("How interesting is this category?", ["interesting", "mid interesting", "not interesting"])
+col1, col2, col3 = st.columns(3)
 
-# Submit the vote
-if st.button("Submit vote"):
-    utils.on_vote(mongo_client, vote, sub_category, idx_selected)
+with col1:
+    button1 = st.button('Interesting')
+
+with col2:
+    button2 = st.button('Mid interesting')
+
+with col3:
+    button3 = st.button('Not interesting')
+
+if button1:
+    utils.on_vote(mongo_client, 'interesting', sub_category, idx_selected)
+
+if button2:
+    utils.on_vote(mongo_client, 'mid interesting', sub_category, idx_selected)
+
+if button3:
+    utils.on_vote(mongo_client, 'not interesting', sub_category, idx_selected)
 
 
 # ---------------------------- DISPLAY ----------------------------
