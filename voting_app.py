@@ -68,10 +68,10 @@ else:
 
     print(f"Collected Categories: {len(st.session_state['categories'])}")
 
-    # # for testing, delete all votes of the test user
-    # if os.getenv("DEBUG", "").lower() == "true" and not st.session_state.get("already_deleted", False):
-    #     mongo_client["category_votes"].delete_many({"email": st.session_state["user_email"]})
-    #     st.session_state["already_deleted"] = True
+    # for testing, delete all votes of the test user
+    if os.getenv("DEBUG", "").lower() == "true" and not st.session_state.get("already_deleted", False):
+        mongo_client["category_votes"].delete_many({"email": st.session_state["user_email"]})
+        st.session_state["already_deleted"] = True
 
     # ---------------------------- Selecting Categories ----------------------------
     st.write("# Voting App")

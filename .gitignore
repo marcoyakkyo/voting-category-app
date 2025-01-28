@@ -4,4 +4,7 @@
 **/__pycache__
 **/*.pyc
 
+**/*.json
+**/*.png
+
 env-voting-category/

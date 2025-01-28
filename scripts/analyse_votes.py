@@ -78,7 +78,13 @@ if __name__ == "__main__":
     print("Confirmed not interesting categories:", len(confirmed_not_interesting))
     print("Confused categories:", len(confused))
 
-    exit(0)
+    # exit(0)
+
+    # first, unset the confirmation_status field for all categories
+    client["categories"].update_many(
+        {"confirmation_status": {"$exists": True}},
+        {"$unset": {"confirmation_status": ""}}
+    )
 
     client["categories"].update_many(
         {"categoryId": {"$in": confirmed_interesting}}, 
@@ -92,3 +98,15 @@ if __name__ == "__main__":
         {"categoryId": {"$in": confused}}, 
         {"$set": {"confirmation_status": "confused"}}
     )
+
+    # make an histogram of the votes
+    import matplotlib.pyplot as plt
+    all_votes = [vote["score"] for vote in votes]
+
+    plt.title("Histogram of categories scores")
+    plt.hist(all_votes, bins=range(int(min(all_votes)) - 1, int(max(all_votes)) + 2, 1), alpha=0.75)
+    plt.xticks(range(int(min(all_votes)) - 1, int(max(all_votes)) + 2, 1))
+    plt.xlabel("Score")
+    plt.ylabel("Number of categories")
+    plt.grid(True)
+    plt.savefig("scripts/categories_scores.png")
