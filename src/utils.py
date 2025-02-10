@@ -8,9 +8,8 @@ def init_connection():
     return MongoClient(st.secrets["MONGO_URL"])[st.secrets["MONGO_DB_NAME"]]
 
 
-@st.cache_data(ttl=600)
+@st.cache_data(ttl=30)
 def get_data(_client: MongoClient) -> list:
-
     AGGREGATE_PRODUCTS = [
         {
             '$group': {
@@ -183,7 +182,7 @@ def get_results(client: MongoClient):
     ]))
 
     for category in category_votes:
-        category["category_id"] = category.pop("_id")
+        category["categoryId"] = category.pop("_id")
         category["score"] = 0
         category["good_votes"] = 0
         category["mid_votes"] = 0
@@ -202,6 +201,23 @@ def get_results(client: MongoClient):
                 category["bad_votes"] += 1
                 category["score"] -= 1
 
+        category["total_votes"] = len(category["votes"])
+
     category_votes.sort(key=lambda x: x["score"], reverse=True)
 
     return category_votes
+
+
+def get_bad_categories(client: MongoClient) -> list:
+    category_votes = get_results(client)
+    return [c["categoryId"] for c in category_votes if c["score"] < 0]
+
+
+def get_confirmed_interesting(client: MongoClient) -> list:
+    category_votes = get_results(client)
+    return [c["categoryId"] for c in category_votes if c["score"] >= 1]
+
+
+def get_confused_categories(client: MongoClient) -> list:
+    category_votes = get_results(client)
+    return [c["categoryId"] for c in category_votes if 0 <= c["score"] < 1]

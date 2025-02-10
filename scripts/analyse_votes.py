@@ -1,5 +1,7 @@
 from pymongo import MongoClient
 
+from src import utils
+
 with open(".streamlit/secrets.toml") as f:
     toml_data = f.read()
 
@@ -10,55 +12,12 @@ client = MongoClient(MONGO_URL)[MONGO_DB_NAME]
 
 if __name__ == "__main__":
 
-    votes = list(client["category_votes"].aggregate([{
-        '$group': {
-            '_id': '$categoryId', 
-            'name': {'$first': '$name'}, 
-            'total_votes': {'$sum': 1}, 
-            'bad_votes': {
-                '$sum': {'$cond': [{'$eq': ['$vote', 'not interesting']}, 1, 0]}
-            }, 
-            'good_votes': {
-                '$sum': {'$cond': [{'$eq': ['$vote', 'interesting']}, 1, 0]}
-            }, 
-            'mid_votes': {
-                '$sum': {'$cond': [{'$eq': ['$vote', 'mid interesting']}, 1, 0]}
-            }, 
-            'users': {
-                '$push': '$email'
-            }
-        }
-    }, {
-        '$sort': {
-            'total_votes': -1, 
-            'good_votes': -1
-        }
-    }]))
-
+    votes = utils.get_results(client)
     print(f"\nCollected {sum([doc["total_votes"] for doc in votes])} votes on a total of {len(list(votes))} categories")
-
-    print("\nTop 5 categories by total votes:")    
-    for i, vote in enumerate(list(votes)[:5]):
-        print(f"{i + 1}. {vote['name']} - {vote['total_votes']} votes")
-
-    votes.sort(key=lambda x: x["good_votes"], reverse=True)
-    print("\nTop 5 categories by good votes:")
-    for i, vote in enumerate(list(votes)[:5]):
-        print(f"{i + 1}. {vote['name']} - {vote['good_votes']} good votes")
-
-    votes.sort(key=lambda x: x["bad_votes"], reverse=True)
-    print("\nTop 5 categories by bad votes:")
-    for i, vote in enumerate(list(votes)[:5]):
-        print(f"{i + 1}. {vote['name']} - {vote['bad_votes']} bad votes")
-
-    for vote in votes:
-        vote["score"] = vote["good_votes"] + 0.5 * vote["mid_votes"] - vote["bad_votes"]
-
-    votes.sort(key=lambda x: x["score"], reverse=True)
 
     print("\nTop 5 categories by score:")
     for i, vote in enumerate(list(votes)[:5]):
-        print(f"{i + 1}. {vote['_id']} - {vote['name']} - score = {vote['score']}")
+        print(f"{i + 1}. {vote['categoryId']} - {vote['name']} - score = {vote['score']}")
 
     # set the categories with score >= 1 as "confirmed interesting",
     # and the ones with score < 0 as "confirmed not interesting"
@@ -68,11 +27,11 @@ if __name__ == "__main__":
 
     for vote in votes:
         if vote["score"] >= 1:
-            confirmed_interesting.append(str(vote["_id"]))
+            confirmed_interesting.append(str(vote["categoryId"]))
         elif vote["score"] < 0:
-            confirmed_not_interesting.append(str(vote["_id"]))
+            confirmed_not_interesting.append(str(vote["categoryId"]))
         else:
-            confused.append(str(vote["_id"]))
+            confused.append(str(vote["categoryId"]))
 
     print("\nConfirmed interesting categories:", len(confirmed_interesting))
     print("Confirmed not interesting categories:", len(confirmed_not_interesting))
@@ -86,18 +45,21 @@ if __name__ == "__main__":
         {"$unset": {"confirmation_status": ""}}
     )
 
-    client["categories"].update_many(
+    res = client["categories"].update_many(
         {"categoryId": {"$in": confirmed_interesting}}, 
-        {"$set": {"confirmation_status": "confirmed_interesting"}}
+        {"$set": {"confirmation_status": 1}}
     )
-    client["categories"].update_many(
+    print("Updated", res.modified_count, "categories as confirmed interesting")
+    res = client["categories"].update_many(
         {"categoryId": {"$in": confirmed_not_interesting}}, 
-        {"$set": {"confirmation_status": "confirmed_not_interesting"}}
+        {"$set": {"confirmation_status": -1}}
     )
-    client["categories"].update_many(
+    print("Updated", res.modified_count, "categories as confirmed not interesting")
+    res = client["categories"].update_many(
         {"categoryId": {"$in": confused}}, 
-        {"$set": {"confirmation_status": "confused"}}
+        {"$set": {"confirmation_status": 0}}
     )
+    print("Updated", res.modified_count, "categories as confused")
 
     # make an histogram of the votes
     import matplotlib.pyplot as plt
@@ -110,3 +72,17 @@ if __name__ == "__main__":
     plt.ylabel("Number of categories")
     plt.grid(True)
     plt.savefig("scripts/categories_scores.png")
+
+    print("\nConfused categories:")
+    for categoryId in confused:
+        # find back the name by iteraing over the votes
+        for vote in votes:
+            if vote["categoryId"] == categoryId:
+                print(f"\t{categoryId}\t{vote['name']}")
+                break
+
+    # erase all products from hot1688_winning_products that are in the confirmed non-interesting categories
+    res = client["hot1688_winning_products"].delete_many(
+        {"categoryId": {"$in": confirmed_not_interesting}}
+    )
+    print("\nDeleted", res.deleted_count, "products from the confirmed not interesting categories")

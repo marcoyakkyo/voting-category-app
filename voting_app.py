@@ -12,7 +12,7 @@ if os.getenv("DEBUG", "").lower() == "true":
     print("Running in debug mode, skipping password check.")
     st.session_state["password_correct"] = True
     st.session_state["user_email"] = os.getenv("DEFAULT_EMAIL")
-    pass # skip password check in debug mode
+    pass      # skip password check in debug mode
 
 elif not auth.check_password():
     print("Password incorrect, stopping the script.")
