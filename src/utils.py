@@ -16,16 +16,14 @@ def get_data(_client: MongoClient) -> list:
                 '_id': '$categoryId', 
                 'products': {
                     '$push': {
-                        'id1688': '$masterId', 
-                        'image': '$image', 
-                        'productIds': '$productIds', 
+                        'id1688': '$id1688', 
+                        'image': '$imgUrl', 
                         'title': '$title', 
-                        'price': '$price', 
-                        'sales': '$sales'
+                        'sales': '$soldOut'
                     }
                 }, 
                 'tot': {'$sum': 1}, 
-                'tot_sales': {'$sum': '$sales'}
+                'tot_sales': {'$sum': '$soldOut'}
             }
         }, {
             '$addFields': {
@@ -80,7 +78,7 @@ def get_data(_client: MongoClient) -> list:
     voted_categories_ids = set(c["categoryId"] for c in voted_categories)
     print(f"Voted categories: {voted_categories_ids}")
 
-    categories = list(_client["hot1688_winning_products"].aggregate(AGGREGATE_PRODUCTS))
+    categories = list(_client["products_for_voting"].aggregate(AGGREGATE_PRODUCTS))
     categories.sort(key=lambda x: len(x["sub_categories"]), reverse=True)
 
     allowed_macro_categories = []
@@ -102,7 +100,6 @@ def get_data(_client: MongoClient) -> list:
             sub_category["products"] = list({product["id1688"]: product for product in sub_category["products"]}.values())
             sub_category["categoryId"] = sub_category.pop("_id")
             for prod in sub_category["products"]:
-                prod["group_size"] = len(prod.pop("productIds"))
                 if not prod.get("image"):
                     prod["image"] = None
 
@@ -155,10 +152,9 @@ def display_products(products: list):
             row = 0
             cols = st.columns(3)
 
-        prod_price = f'{float(prod["price"])* 0.13:.2f} $'
         prod_link = f"https://detail.1688.com/offer/{prod['id1688']}.html"
 
-        product_info = f"Price: {prod_price}\nSales: {prod['sales']}\nGroup size: {prod['group_size']}\n[View product]({prod_link})"
+        product_info = f"\nSales: {prod['sales']}\nTitle: {prod['title']}\n[Link to Product]({prod_link})"
 
         cols[row].image(prod["image"], caption=product_info, width=200) #, use_column_width=True
         row += 1

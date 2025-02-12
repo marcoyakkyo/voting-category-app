@@ -52,10 +52,10 @@ if __name__ == "__main__":
     print(*result, sep="\n")
 
 
-    # for each category in missing_votes, check if there are products associated into the "hot1688_winning_products"
-    prods = list(client["hot1688_winning_products"].find(
+    # for each category in missing_votes, check if there are products associated into the "products_for_voting"
+    prods = list(client["products_for_voting"].find(
         {"categoryId": {"$in": list(missing_votes)}},
-        {"categoryId": 1, "masterId": 1, "_id": 0}
+        {"categoryId": 1, "id1688": 1, "_id": 0}
     ))
 
     print(len(prods), "products found")

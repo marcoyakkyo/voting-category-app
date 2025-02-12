@@ -26,6 +26,7 @@ def check_email():
     # Check if email is already stored in session state
     if "user_email" not in st.session_state:
         user_email = st.text_input("Enter your company email:", key="email_input")
+        user_email = user_email.strip().lower()
 
         # Validate email when user enters something
         if user_email.endswith(allowed_domain):
